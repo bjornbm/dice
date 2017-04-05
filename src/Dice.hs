@@ -2,6 +2,7 @@ module Dice where
 
 import Control.Monad (replicateM)
 import Data.Ratio
+import System.Random
 
 type Rate = Ratio Int
 
@@ -18,6 +19,17 @@ instance Show Odds where
 
 
 data Dice = Int`D`Int
+instance Show Dice where show (D n m) = show n ++ "D" ++ show m
+d = D
+d2   = (`D`  2)
+d3   = (`D`  3)
+d4   = (`D`  4)
+d6   = (`D`  6)
+d8   = (`D`  8)
+d10  = (`D` 10)
+d12  = (`D` 12)
+d20  = (`D` 20)
+d100 = (`D`100)
 
 outcomes :: Dice -> [[Int]]
 outcomes (n`D`m) = replicateM n [1..m]
@@ -31,3 +43,18 @@ percent :: ([Int] -> Bool) -> Dice -> Percent
 percent p = Percent . rate p
 odds :: ([Int] -> Bool) -> Dice -> Odds
 odds    p = Odds    . rate p
+
+
+-- | Sample picks a random element from the list.
+sample :: RandomGen g => [a] -> g -> (a, g)
+sample xs gen = (xs !! i, g) where (i, g) = randomR (0, length xs - 1) gen
+
+-- | Sample picks a random element from the list.
+sampleIO :: [a] -> IO a
+sampleIO xs = (xs !!) <$> randomRIO (0, length xs - 1)
+
+roll :: Dice -> IO [Int]
+roll = sampleIO . outcomes
+
+roll' :: Int -> (Int -> Int -> Dice) -> Int -> IO [Int]
+roll' n d m = roll (n`d`m)
