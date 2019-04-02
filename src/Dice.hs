@@ -19,43 +19,43 @@ instance Show Odds where
       n = numerator   r
       d = denominator r
 
+
+
+data Dice = D { sides :: Int }  -- ^ A single die.
+          | Hand { dice :: [Dice], modifier :: Int }  -- ^ Several dice and/or a modifier to be summed.
+          deriving (Eq, Ord)
+
+-- | Specify a modifier.
+modif = Hand []
+
 instance Semigroup Dice where
   Hand ds1 m1 <> Hand ds2 m2 = Hand (ds1 <> ds2) (m1 + m2)
-  Hand ds  m1 <> Modifier m2 = Hand ds (m1 + m2)
-  Hand ds  m  <> D n = Hand (D n:ds) m
+  Hand ds  m  <> D n         = Hand (D n :  ds)   m
+  D n         <> Hand ds  m  = Hand (D n :  ds)   m
+  D n1        <> D n2        = Hand [D n1, D n2]  0
 
-  Modifier m1 <> Hand ds  m2 = Hand ds  (m1 + m2)
-  Modifier m1 <> Modifier m2 = Modifier (m1 + m2)
-  Modifier m  <> D n = Hand [D n] m
+instance Monoid Dice where mempty = modif 0
 
-  D n  <> Hand ds  m = Hand (D n:ds)     m
-  D n  <> Modifier m = Hand [D n]        m
-  D n1 <> D n2       = Hand [D n1, D n2] 0
-
-instance Monoid Dice where mempty = Modifier 0
-
-data Dice = D { sides :: Int }
-          | Hand { dice :: [Dice], modifier :: Int }
-          | Modifier { modifier :: Int }
-          deriving (Eq, Ord)
 
 instance Show Dice where
   show (D n) = "D" ++ show n
   show (Hand ds m) = intercalate "+" (map showGroup $ group $ reverse $ sort ds)
-                       <> show (Modifier m)
+                  <> showModifier m
     where
       showGroup xs = show1 (length xs) <> show (head xs) where
         show1 1 = ""
         show1 i = show i
-  show (Modifier i) = case compare i 0 of
-    LT -> show i
-    EQ -> ""
-    GT -> "+" ++ show i
+      showModifier i = case compare i 0 of
+        LT -> show i
+        EQ -> ""
+        GT -> "+" ++ show i
 
-
+-- Convenience functions.
+d :: Int -> Int -> Dice
 m `d` n = mtimesDefault m (D n)
-d `plus`  i = d <> Modifier i
-d `minus` i = d <> Modifier (negate i)
+d `plus`  i = d <> modif i
+d `minus` i = d <> modif (negate i)
+
 
 d2   = D   2
 d3   = D   3
@@ -71,7 +71,6 @@ d100 = D 100
 -- | The possible sum of the .
 outcomes1 :: Dice -> [Int]
 outcomes1 (D n) = [1..n]
-outcomes1 (Modifier i) = [i]
 outcomes1 (Hand ds m) = map ((+m) . sum) (mapM outcomes1 ds)
 
 outcomes :: [Dice] -> [[Int]]
