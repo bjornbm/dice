@@ -1,6 +1,5 @@
 module Dice where
 
-import Control.Monad (replicateM, join)
 import Data.List (intercalate, group, sort)
 import Data.Ratio
 import Data.Semigroup (mtimesDefault)
@@ -10,21 +9,22 @@ type Rate = Ratio Int
 
 newtype Percent = Percent Rate deriving (Ord, Eq)
 instance Show Percent where
-  show (Percent r) = show (round $ 100 * r) ++ " %"
+  show (Percent r) = show (round $ 100 * r :: Int) ++ " %"
 
 newtype Odds = Odds Rate deriving (Ord, Eq)
 instance Show Odds where
-  show (Odds r) = show n ++ ":" ++ show (d - n)
+  show (Odds r) = show num ++ ":" ++ show (den - num)
     where
-      n = numerator   r
-      d = denominator r
+      num = numerator   r
+      den = denominator r
 
 
 data Hand = Hand { dice :: [Int], modifier :: Int }  -- ^ Several dice and/or a modifier to be summed.
           deriving (Eq, Ord)
 
 -- | Specify a modifier.
-die d = Hand [d] 0
+die, modif :: Int -> Hand
+die n = Hand [n] 0
 modif = Hand []
 
 instance Semigroup Hand where
@@ -40,7 +40,7 @@ instance Show Hand where
       showGroup xs = show1 (length xs) <> showD (head xs) where
         show1 1 = ""
         show1 i = show i
-        showD d = "D" ++ show d
+        showD n = "D" ++ show n
       showModifier i = case compare i 0 of
         LT -> show i
         EQ -> ""
@@ -49,9 +49,11 @@ instance Show Hand where
 -- Convenience functions.
 d :: Int -> Int -> Hand
 m `d` n = mtimesDefault m (die n)
-d `plus`  i = d <> modif i
-d `minus` i = d <> modif (negate i)
+plus, minus :: Hand -> Int -> Hand
+h `plus`  i = h <> modif i
+h `minus` i = h <> modif (negate i)
 
+d2, d3, d4, d6, d8, d10, d12, d20, d30, d100 :: Hand
 d2   = die   2
 d3   = die   3
 d4   = die   4
@@ -65,7 +67,7 @@ d100 = die 100
 
 
 outcomes1 :: Hand -> [Int]
-outcomes1 (Hand ds m) = map ((+m) . sum) (mapM (\d -> [1..d]) ds)
+outcomes1 (Hand ds m) = map ((+m) . sum) (mapM (\n -> [1..n]) ds)
 
 outcomes :: [Hand] -> [[Int]]
 outcomes = mapM outcomes1
