@@ -20,28 +20,28 @@ instance Show Odds where
       d = denominator r
 
 instance Semigroup Dice where
-  Different ds1 m1 <> Different ds2 m2 = Different (ds1 <> ds2) (m1 + m2)
-  Different ds  m1 <> Modifier m2 = Different ds (m1 + m2)
-  Different ds  m  <> One n = Different (One n:ds) m
+  Hand ds1 m1 <> Hand ds2 m2 = Hand (ds1 <> ds2) (m1 + m2)
+  Hand ds  m1 <> Modifier m2 = Hand ds (m1 + m2)
+  Hand ds  m  <> D n = Hand (D n:ds) m
 
-  Modifier m1 <> Different ds m2 = Different ds (m1 + m2)
+  Modifier m1 <> Hand ds  m2 = Hand ds  (m1 + m2)
   Modifier m1 <> Modifier m2 = Modifier (m1 + m2)
-  Modifier m  <> One n = Different [One n] m
+  Modifier m  <> D n = Hand [D n] m
 
-  One n <> Different ds m = Different (One n:ds) m
-  One n <> Modifier m     = Different [One n]    m
-  One n1 <> One n2 = Different [One n1, One n2] 0
+  D n  <> Hand ds  m = Hand (D n:ds)     m
+  D n  <> Modifier m = Hand [D n]        m
+  D n1 <> D n2       = Hand [D n1, D n2] 0
 
 instance Monoid Dice where mempty = Modifier 0
 
-data Dice = One { sides :: Int }
-          | Different { dice :: [Dice], modifier :: Int }
+data Dice = D { sides :: Int }
+          | Hand { dice :: [Dice], modifier :: Int }
           | Modifier { modifier :: Int }
           deriving (Eq, Ord)
 
 instance Show Dice where
-  show (One n) = "D" ++ show n
-  show (Different ds m) = intercalate "+" (map showGroup $ group $ reverse $ sort ds)
+  show (D n) = "D" ++ show n
+  show (Hand ds m) = intercalate "+" (map showGroup $ group $ reverse $ sort ds)
                        <> show (Modifier m)
     where
       showGroup xs = show1 (length xs) <> show (head xs) where
@@ -53,26 +53,26 @@ instance Show Dice where
     GT -> "+" ++ show i
 
 
-m `d` n = mtimesDefault m (One n)
+m `d` n = mtimesDefault m (D n)
 d `plus`  i = d <> Modifier i
 d `minus` i = d <> Modifier (negate i)
 
-d2   = One   2
-d3   = One   3
-d4   = One   4
-d6   = One   6
-d8   = One   8
-d10  = One  10
-d12  = One  12
-d20  = One  20
-d30  = One  30
-d100 = One 100
+d2   = D   2
+d3   = D   3
+d4   = D   4
+d6   = D   6
+d8   = D   8
+d10  = D  10
+d12  = D  12
+d20  = D  20
+d30  = D  30
+d100 = D 100
 
 -- | The possible sum of the .
 outcomes1 :: Dice -> [Int]
-outcomes1 (One n) = [1..n]
+outcomes1 (D n) = [1..n]
 outcomes1 (Modifier i) = [i]
-outcomes1 (Different ds m) = map ((+m) . sum) (mapM outcomes1 ds)
+outcomes1 (Hand ds m) = map ((+m) . sum) (mapM outcomes1 ds)
 
 outcomes :: [Dice] -> [[Int]]
 outcomes = mapM outcomes1
