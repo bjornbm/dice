@@ -21,24 +21,24 @@ instance Show Odds where
 
 
 
-data Dice = D { sides :: Int }  -- ^ A single die.
-          | Hand { dice :: [Dice], modifier :: Int }  -- ^ Several dice and/or a modifier to be summed.
+newtype Die = D { sides :: Int } deriving (Eq, Ord) -- ^ A single die.
+
+data Hand = Hand { dice :: [Die], modifier :: Int }  -- ^ Several dice and/or a modifier to be summed.
           deriving (Eq, Ord)
 
 -- | Specify a modifier.
+die n = Hand [D n] 0
 modif = Hand []
 
-instance Semigroup Dice where
+instance Semigroup Hand where
   Hand ds1 m1 <> Hand ds2 m2 = Hand (ds1 <> ds2) (m1 + m2)
-  Hand ds  m  <> D n         = Hand (D n :  ds)   m
-  D n         <> Hand ds  m  = Hand (D n :  ds)   m
-  D n1        <> D n2        = Hand [D n1, D n2]  0
 
-instance Monoid Dice where mempty = modif 0
+instance Monoid Hand where mempty = modif 0
 
 
-instance Show Dice where
+instance Show Die where
   show (D n) = "D" ++ show n
+instance Show Hand where
   show (Hand ds m) = intercalate "+" (map showGroup $ group $ reverse $ sort ds)
                   <> showModifier m
     where
@@ -51,8 +51,8 @@ instance Show Dice where
         GT -> "+" ++ show i
 
 -- Convenience functions.
-d :: Int -> Int -> Dice
-m `d` n = mtimesDefault m (D n)
+d :: Int -> Int -> Hand
+m `d` n = mtimesDefault m (die n)
 d `plus`  i = d <> modif i
 d `minus` i = d <> modif (negate i)
 
@@ -69,21 +69,22 @@ d30  = D  30
 d100 = D 100
 
 -- | The possible sum of the .
-outcomes1 :: Dice -> [Int]
-outcomes1 (D n) = [1..n]
-outcomes1 (Hand ds m) = map ((+m) . sum) (mapM outcomes1 ds)
+outcomesD :: Die -> [Int]
+outcomesD (D n) = [1..n]
+outcomes1 :: Hand -> [Int]
+outcomes1 (Hand ds m) = map ((+m) . sum) (mapM outcomesD ds)
 
-outcomes :: [Dice] -> [[Int]]
+outcomes :: [Hand] -> [[Int]]
 outcomes = mapM outcomes1
 
-outcomesN :: [Dice] -> Int
+outcomesN :: [Hand] -> Int
 outcomesN = length . outcomes
 
-rate :: ([Int] -> Bool) -> [Dice] -> Rate
+rate :: ([Int] -> Bool) -> [Hand] -> Rate
 rate p ds = length (filter p $ outcomes ds) % outcomesN ds
-percent :: ([Int] -> Bool) -> [Dice] -> Percent
+percent :: ([Int] -> Bool) -> [Hand] -> Percent
 percent p = Percent . rate p
-odds :: ([Int] -> Bool) -> [Dice] -> Odds
+odds :: ([Int] -> Bool) -> [Hand] -> Odds
 odds    p = Odds    . rate p
 
 
@@ -95,8 +96,8 @@ sample xs gen = (xs !! i, g) where (i, g) = randomR (0, length xs - 1) gen
 sampleIO :: [a] -> IO a
 sampleIO xs = (xs !!) <$> randomRIO (0, length xs - 1)
 
-roll :: Dice -> IO Int
+roll :: Hand -> IO Int
 roll = sampleIO . outcomes1
 
-roll' :: Int -> (Int -> Int -> Dice) -> Int -> IO Int
+roll' :: Int -> (Int -> Int -> Hand) -> Int -> IO Int
 roll' n d m = roll (n`d`m)
