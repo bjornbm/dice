@@ -1,6 +1,7 @@
 module Dice where
 
-import Data.List (intercalate, group, sort)
+import Data.List (intercalate, group, sortOn)
+import Data.Ord (Down (Down))
 import Data.Ratio
 import Data.Semigroup (mtimesDefault)
 import System.Random
@@ -36,7 +37,7 @@ instance Monoid Hand where mempty = modif 0
 instance Show Hand where
   show (Hand ds m) = showDice ds <> showModifier m
     where
-      showDice = intercalate "+" . map showGroup . group . reverse . sort
+      showDice = intercalate "+" . map showGroup . group . reverseSort
       showGroup xs = show1 (length xs) <> showD (head xs) where
         show1 1 = ""
         show1 i = show i
@@ -45,6 +46,7 @@ instance Show Hand where
         LT -> show i
         EQ -> ""
         GT -> "+" ++ show i
+      reverseSort = sortOn Down
 
 -- Convenience functions.
 d :: Int -> Int -> Hand
