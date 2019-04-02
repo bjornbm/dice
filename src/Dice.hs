@@ -6,6 +6,9 @@ import Data.Ratio
 import Data.Semigroup (mtimesDefault)
 import System.Random
 
+-- Generic rate representations
+-- ============================
+
 type Rate = Ratio Int
 
 newtype Percent = Percent Rate deriving (Ord, Eq)
@@ -20,19 +23,34 @@ instance Show Odds where
       den = denominator r
 
 
-data Hand = Hand { dice :: [Int], modifier :: Int }  -- ^ Several dice and/or a modifier to be summed.
-          deriving (Eq, Ord)
+-- Generic sampling
+-- ================
 
--- | Specify a modifier.
-die, modif :: Int -> Hand
-die n = Hand [n] 0
-modif = Hand []
+-- | Sample picks a random element from the list.
+sample :: RandomGen g => [a] -> g -> (a, g)
+sample xs gen = (xs !! i, g) where (i, g) = randomR (0, length xs - 1) gen
+
+-- | Sample picks a random element from the list.
+sampleIO :: [a] -> IO a
+sampleIO xs = (xs !!) <$> randomRIO (0, length xs - 1)
+
+
+-- Types for dice
+-- ==============
+
+type Sides = Int  -- ^ The number of sides on a die.
+type Roll  = Int  -- ^ The outcome of rolling a hand.
+type Count = Int  -- ^ The number of dice to roll.
+type Mod   = Int  -- ^ A modifier to apply to the roll.
+
+-- | A hand is a set of dice and any modifier that goes with them.
+  -- When rolled they are all added together.
+data Hand = Hand { dice :: [Sides], modifier :: Mod } deriving (Eq, Ord)
 
 instance Semigroup Hand where
   Hand ds1 m1 <> Hand ds2 m2 = Hand (ds1 <> ds2) (m1 + m2)
 
-instance Monoid Hand where mempty = modif 0
-
+instance Monoid Hand where mempty = Hand [] 0
 
 instance Show Hand where
   show (Hand ds m) = showDice ds <> showModifier m
@@ -41,20 +59,35 @@ instance Show Hand where
       showGroup xs = show1 (length xs) <> showD (head xs) where
         show1 1 = ""
         show1 i = show i
-        showD n = "D" ++ show n
+        showD s = "D" ++ show s
       showModifier i = case compare i 0 of
         LT -> show i
         EQ -> ""
         GT -> "+" ++ show i
       reverseSort = sortOn Down
 
--- Convenience functions.
-d :: Int -> Int -> Hand
-m `d` n = mtimesDefault m (die n)
-plus, minus :: Hand -> Int -> Hand
-h `plus`  i = h <> modif i
-h `minus` i = h <> modif (negate i)
 
+-- Convenience functions
+-- =====================
+
+-- | Specify a single die.
+die :: Sides -> Hand
+die s = Hand [s] 0
+
+-- | Specify a modifier.
+modif :: Mod -> Hand
+modif = Hand []
+
+-- | @m`d`n@ means m n-sided dice.
+d :: Count -> Sides -> Hand
+n `d` s = mtimesDefault n (die s)
+
+-- | Add/subtract a modifier from a 'Hand'.
+plus, minus :: Hand -> Mod -> Hand
+h `plus`  m = h <> modif m
+h `minus` m = h <> modif (negate m)
+
+-- | Various dice.
 d2, d3, d4, d6, d8, d10, d12, d20, d30, d100 :: Hand
 d2   = die   2
 d3   = die   3
@@ -68,36 +101,45 @@ d30  = die  30
 d100 = die 100
 
 
-outcomes1 :: Hand -> [Int]
-outcomes1 (Hand ds m) = map ((+m) . sum) (mapM (\n -> [1..n]) ds)
+-- Analysing outcomes
+-- ==================
 
-outcomes :: [Hand] -> [[Int]]
+-- | Enumerate the outcomes (sums) of each possible combination of
+  -- dice faces for a given hand. The outcomes will not be sorted.
+outcomes1 :: Hand -> [Roll]
+outcomes1 (Hand ds m) = (+m) . sum <$> mapM (\s -> [1..s]) ds
+
+-- | Enumerate the outcomes (sums) of each possible combination of
+  -- dice faces for several hands. The outcomes will not be sorted.
+outcomes :: [Hand] -> [[Roll]]
 outcomes = mapM outcomes1
 
-outcomesN :: [Hand] -> Int
-outcomesN = length . outcomes
-
-rate :: ([Int] -> Bool) -> [Hand] -> Rate
+-- | Provide the rate with which the hands can be expected to fullfil the
+  -- given predicate.
+rate :: ([Roll] -> Bool) -> [Hand] -> Rate
 rate p h = let os = outcomes h in length (filter p os) % length os
-percent :: ([Int] -> Bool) -> [Hand] -> Percent
+
+-- | Provide the percentage of rolls that the hands can be expected to
+  -- fullfil the given predicate.
+percent :: ([Roll] -> Bool) -> [Hand] -> Percent
 percent p = Percent . rate p
-odds :: ([Int] -> Bool) -> [Hand] -> Odds
-odds    p = Odds    . rate p
+
+-- | Provide the odds of the hands fullfilling the given predicate.
+odds :: ([Roll] -> Bool) -> [Hand] -> Odds
+odds p = Odds . rate p
 
 
--- | Sample picks a random element from the list.
-sample :: RandomGen g => [a] -> g -> (a, g)
-sample xs gen = (xs !! i, g) where (i, g) = randomR (0, length xs - 1) gen
+-- Random rolls
+-- ============
 
--- | Sample picks a random element from the list.
-sampleIO :: [a] -> IO a
-sampleIO xs = (xs !!) <$> randomRIO (0, length xs - 1)
-
-roll1 :: Hand -> IO Int
+-- | Perform a random roll of the hand.
+roll1 :: Hand -> IO Roll
 roll1 = sampleIO . outcomes1
 
-roll :: [Hand] -> IO [Int]
+-- | Perform a random roll of the hands.
+roll :: [Hand] -> IO [Roll]
 roll = sampleIO . outcomes
 
-roll' :: Int -> (Int -> Int -> Hand) -> Int -> IO Int
-roll' n _ m = roll1 (n`d`m)
+-- | @roll' 2 d 6@ is the same as @roll (2`d`6)@.
+roll' :: Count -> (Count -> Sides -> Hand) -> Sides -> IO Roll
+roll' n _ s = roll1 (n`d`s)
