@@ -1,6 +1,6 @@
 module Dice where
 
-import Control.Monad (replicateM)
+import Control.Monad (replicateM, join)
 import Data.Ratio
 import System.Random
 
@@ -34,6 +34,9 @@ d100 = (`D`100)
 
 outcomes :: Dice -> [[Int]]
 outcomes (n`D`m) = replicateM n [1..m]
+
+outcomes' :: [Dice] -> [[Int]]
+outcomes' = map join . mapM (outcomes)
 
 outcomesN :: Dice -> Int
 outcomesN (n`D`m) = m ^ n
