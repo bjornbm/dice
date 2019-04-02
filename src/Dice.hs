@@ -1,8 +1,9 @@
 module Dice where
 
 import Control.Monad (replicateM, join)
-import Data.List (intercalate)
+import Data.List (intercalate, group, sort)
 import Data.Ratio
+import Data.Semigroup (mtimesDefault)
 import System.Random
 
 type Rate = Ratio Int
@@ -19,22 +20,43 @@ instance Show Odds where
       d = denominator r
 
 instance Semigroup Dice where
-  d1 <> d2 = Different [d1, d2]
+  Different ds1 m1 <> Different ds2 m2 = Different (ds1 <> ds2) (m1 + m2)
+  Different ds  m1 <> Modifier m2 = Different ds (m1 + m2)
+  Different ds  m  <> One n = Different (One n:ds) m
+
+  Modifier m1 <> Different ds m2 = Different ds (m1 + m2)
+  Modifier m1 <> Modifier m2 = Modifier (m1 + m2)
+  Modifier m  <> One n = Different [One n] m
+
+  One n <> Different ds m = Different (One n:ds) m
+  One n <> Modifier m     = Different [One n]    m
+  One n1 <> One n2 = Different [One n1, One n2] 0
+
+instance Monoid Dice where mempty = Modifier 0
 
 data Dice = One { sides :: Int }
-          | Many { count :: Int, sides :: Int }
-          | Different { dice :: [Dice] }
+          | Different { dice :: [Dice], modifier :: Int }
           | Modifier { modifier :: Int }
+          deriving (Eq, Ord)
+
 instance Show Dice where
   show (One n) = "D" ++ show n
-  show (Many m n) = show m ++ "D" ++ show n
-  show (Different ds) = intercalate "+" $ map show ds  -- TODO not good for modifiers
-  show (Modifier i) = show i
+  show (Different ds m) = intercalate "+" (map showGroup $ group $ reverse $ sort ds)
+                       <> show (Modifier m)
+    where
+      showGroup xs = show1 (length xs) <> show (head xs) where
+        show1 1 = ""
+        show1 i = show i
+  show (Modifier i) = case compare i 0 of
+    LT -> show i
+    EQ -> ""
+    GT -> "+" ++ show i
 
+
+m `d` n = mtimesDefault m (One n)
 d `plus`  i = d <> Modifier i
 d `minus` i = d <> Modifier (negate i)
 
-d = Many
 d2   = One   2
 d3   = One   3
 d4   = One   4
@@ -49,9 +71,8 @@ d100 = One 100
 -- | The possible sum of the .
 outcomes1 :: Dice -> [Int]
 outcomes1 (One n) = [1..n]
-outcomes1 (Many m n) = map sum . replicateM m $ outcomes1 (One n)
 outcomes1 (Modifier i) = [i]
-outcomes1 (Different ds) = map sum $ mapM outcomes1 ds
+outcomes1 (Different ds m) = map ((+m) . sum) (mapM outcomes1 ds)
 
 outcomes :: [Dice] -> [[Int]]
 outcomes = mapM outcomes1
