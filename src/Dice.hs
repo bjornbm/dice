@@ -104,6 +104,18 @@ d100 = die 100
 -- Analysing outcomes
 -- ==================
 
+-- | Generate one of the possible outcomes (sums) of rolling a given
+  -- hand.
+outcome1 :: Hand -> IO Roll
+outcome1 (Hand ds m) = do
+  faces <- mapM (\s -> sampleIO [1..s]) ds
+  return $ sum faces + m
+
+-- | Generate one of the possible outcomes (sums) of rolling several
+  -- hand.
+outcome :: [Hand] -> IO [Roll]
+outcome = mapM outcome1
+
 -- | Enumerate the outcomes (sums) of each possible combination of
   -- dice faces for a given hand. The outcomes will not be sorted.
 outcomes1 :: Hand -> [Roll]
@@ -134,11 +146,11 @@ odds p = Odds . rate p
 
 -- | Perform a random roll of the hand.
 roll1 :: Hand -> IO Roll
-roll1 = sampleIO . outcomes1
+roll1 = outcome1 -- sampleIO . outcomes1
 
 -- | Perform a random roll of the hands.
 roll :: [Hand] -> IO [Roll]
-roll = sampleIO . outcomes
+roll = outcome -- sampleIO . outcomes
 
 -- | @roll' 2 d 6@ is the same as @roll (2`d`6)@.
 roll' :: Count -> (Count -> Sides -> Hand) -> Sides -> IO Roll
