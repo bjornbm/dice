@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Dice where
 
 import Data.List (intercalate, group, sortOn)
@@ -11,7 +13,7 @@ import System.Random
 
 type Rate = Ratio Int
 
-newtype Percent = Percent Rate deriving (Ord, Eq)
+newtype Percent = Percent Rate deriving (Ord, Eq, Num)
 instance Show Percent where
   show (Percent r) = show (round $ 100 * r :: Int) ++ " %"
 
