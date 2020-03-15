@@ -11,11 +11,11 @@ import System.Random
 -- Generic rate representations
 -- ============================
 
-type Rate = Ratio Int
+type Rate = Rational -- Ratio Integer
 
 newtype Percent = Percent Rate deriving (Ord, Eq, Num)
 instance Show Percent where
-  show (Percent r) = show (round $ 100 * r :: Int) ++ " %"
+  show (Percent r) = show (round $ 100 * r :: Integer) ++ " %"
 
 newtype Odds = Odds Rate deriving (Ord, Eq)
 instance Show Odds where
@@ -131,7 +131,8 @@ outcomes = mapM outcomes1
 -- | Provide the rate with which the hands can be expected to fullfil the
   -- given predicate.
 rate :: ([Roll] -> Bool) -> [Hand] -> Rate
-rate p h = let os = outcomes h in length (filter p os) % length os
+rate p h = let os = outcomes h in length' (filter p os) % length' os
+  where length' = fromIntegral . length
 
 -- | Provide the percentage of rolls that the hands can be expected to
   -- fullfil the given predicate.
